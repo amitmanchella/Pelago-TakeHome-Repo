@@ -666,6 +666,16 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+
+              {/* Bottom Button */}
+              <div className="p-4 flex justify-center">
+                <button
+                  onClick={() => {}}
+                  className="px-8 py-3 bg-white/30 backdrop-blur-md rounded-xl hover:bg-white/40 transition text-gray-900 font-medium"
+                >
+                  Click Me
+                </button>
+              </div>
             </>
           )}
         </div>
