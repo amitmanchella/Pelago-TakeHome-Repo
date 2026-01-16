@@ -3,6 +3,12 @@ import { Conversation, WorkingMemory } from './types';
 const CONVERSATIONS_KEY = 'voiced_conversations';
 const MEMORY_KEY = 'voiced_working_memory';
 const SYSTEM_PROMPT_KEY = 'voiced_system_prompt';
+const SELECTED_MODEL_KEY = 'voiced_selected_model';
+
+// Available LLM models
+export type LLMModel = 'GPT 5.2' | 'Claude Sonnet' | 'Gemini';
+export const AVAILABLE_MODELS: LLMModel[] = ['GPT 5.2', 'Claude Sonnet', 'Gemini'];
+export const DEFAULT_MODEL: LLMModel = 'GPT 5.2';
 
 export const DEFAULT_SYSTEM_PROMPT = `You are a supportive, reflective AI companion inspired by Voiced. You provide emotional support through brief, personal conversations.
 
@@ -125,4 +131,19 @@ export function saveSystemPrompt(prompt: string): void {
 export function resetSystemPrompt(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(SYSTEM_PROMPT_KEY);
+}
+
+// Selected model management
+export function getSelectedModel(): LLMModel {
+  if (typeof window === 'undefined') return DEFAULT_MODEL;
+  const data = localStorage.getItem(SELECTED_MODEL_KEY);
+  if (data && AVAILABLE_MODELS.includes(data as LLMModel)) {
+    return data as LLMModel;
+  }
+  return DEFAULT_MODEL;
+}
+
+export function saveSelectedModel(model: LLMModel): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(SELECTED_MODEL_KEY, model);
 }

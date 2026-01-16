@@ -12,7 +12,11 @@ import {
   getSystemPrompt,
   saveSystemPrompt,
   resetSystemPrompt,
-  DEFAULT_SYSTEM_PROMPT
+  DEFAULT_SYSTEM_PROMPT,
+  getSelectedModel,
+  saveSelectedModel,
+  AVAILABLE_MODELS,
+  LLMModel
 } from '@/lib/storage';
 import { getTheme, saveTheme, ThemeSettings, BackgroundType, ColorPalette, GLASS_STYLES } from '@/lib/theme';
 import { exportConversation, ExportFormat } from '@/lib/export';
@@ -28,26 +32,28 @@ export default function Home() {
   const [showSettings, setShowSettings] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
   const [theme, setTheme] = useState<ThemeSettings | null>(null);
-  const [showEndScreen, setShowEndScreen] = useState(false);
-  const [endScreenData, setEndScreenData] = useState<EndScreenData | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [analysisStyle, setAnalysisStyle] = useState('warm and supportive');
+    const [showEndScreen, setShowEndScreen] = useState(false);
+    const [endScreenData, setEndScreenData] = useState<EndScreenData | null>(null);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+      const [analysisStyle, setAnalysisStyle] = useState('warm and supportive');
+      const [selectedModel, setSelectedModel] = useState<LLMModel>('GPT 5.2');
     const [showExportMenu, setShowExportMenu] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const exportMenuRef = useRef<HTMLDivElement>(null);
 
-  // Load data from localStorage on mount
-  useEffect(() => {
-    const savedConversations = getConversations();
-    setConversations(savedConversations);
-    setSystemPrompt(getSystemPrompt());
-    setTheme(getTheme());
+    // Load data from localStorage on mount
+    useEffect(() => {
+      const savedConversations = getConversations();
+      setConversations(savedConversations);
+      setSystemPrompt(getSystemPrompt());
+      setTheme(getTheme());
+      setSelectedModel(getSelectedModel());
 
-    // If there are conversations, load the most recent one
-    if (savedConversations.length > 0) {
-      setCurrentConversation(savedConversations[0]);
-    }
-  }, []);
+      // If there are conversations, load the most recent one
+      if (savedConversations.length > 0) {
+        setCurrentConversation(savedConversations[0]);
+      }
+    }, []);
 
     // Auto-scroll to bottom when messages change
     useEffect(() => {
@@ -320,11 +326,16 @@ export default function Home() {
       }
     };
 
-    const handleExport = (format: ExportFormat) => {
-      if (!currentConversation) return;
-      exportConversation(currentConversation, format);
-      setShowExportMenu(false);
-    };
+        const handleExport = (format: ExportFormat) => {
+          if (!currentConversation) return;
+          exportConversation(currentConversation, format);
+          setShowExportMenu(false);
+        };
+
+        const handleModelChange = (model: LLMModel) => {
+          setSelectedModel(model);
+          saveSelectedModel(model);
+        };
 
   if (!theme) return null;
 
@@ -634,11 +645,30 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Input */}
-              <div className={`border-t border-white/20 p-6 ${glassClass}`}>
-                <div className="max-w-3xl mx-auto space-y-3">
-                  <div className="flex gap-4">
-                    <textarea
+                            {/* Input */}
+                            <div className={`border-t border-white/20 p-6 ${glassClass}`}>
+                              <div className="max-w-3xl mx-auto space-y-3">
+                                {/* Model Selector */}
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm text-gray-700 mr-2">Model:</span>
+                                  <div className="flex gap-2">
+                                    {AVAILABLE_MODELS.map((model) => (
+                                      <button
+                                        key={model}
+                                        onClick={() => handleModelChange(model)}
+                                        className={`px-3 py-1.5 rounded-lg text-sm transition ${
+                                          selectedModel === model
+                                            ? 'bg-white/50 font-semibold text-gray-900 border border-white/50'
+                                            : 'bg-white/20 hover:bg-white/30 text-gray-800'
+                                        }`}
+                                      >
+                                        {model}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="flex gap-4">
+                                  <textarea
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={handleKeyPress}
