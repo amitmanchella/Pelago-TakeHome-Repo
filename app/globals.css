@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply overflow-hidden;
+}
+
+/* Glassmorphism utilities */
+@layer utilities {
+  .glass-light {
+    @apply bg-white/10 backdrop-blur-sm border border-white/20;
+  }
+
+  .glass-medium {
+    @apply bg-white/20 backdrop-blur-md border border-white/30;
+  }
+
+  .glass-heavy {
+    @apply bg-white/30 backdrop-blur-lg border border-white/40;
+  }
+
+  .glass-sidebar {
+    @apply bg-white/15 backdrop-blur-xl border-r border-white/20;
+  }
+
+  .glass-input {
+    @apply bg-white/25 backdrop-blur-md border border-white/30 focus:border-white/50 focus:bg-white/30;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-white/5;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-white/30 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-white/40;
+}
+
+/* Smooth animations */
+* {
+  transition-duration: 200ms;
+  transition-timing-function: ease-in-out;
+}
