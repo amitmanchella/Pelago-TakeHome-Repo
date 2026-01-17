@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Message, Conversation, EndOfConversationScreen as EndScreenData } from '@/lib/types';
+import { Message, Conversation, EndOfConversationScreen as EndScreenData, SentimentAnalysisResult } from '@/lib/types';
 import {
   getConversations,
   saveConversation,
@@ -18,6 +18,7 @@ import { getTheme, saveTheme, ThemeSettings, BackgroundType, ColorPalette, GLASS
 import { exportConversation, ExportFormat } from '@/lib/export';
 import BackgroundWrapper from '@/components/backgrounds/BackgroundWrapper';
 import EndOfConversationScreen from '@/components/EndOfConversationScreen';
+import SentimentIndicator from '@/components/SentimentIndicator';
 import { Download } from 'lucide-react';
 
 export default function Home() {
@@ -30,8 +31,10 @@ export default function Home() {
   const [theme, setTheme] = useState<ThemeSettings | null>(null);
   const [showEndScreen, setShowEndScreen] = useState(false);
   const [endScreenData, setEndScreenData] = useState<EndScreenData | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [analysisStyle, setAnalysisStyle] = useState('warm and supportive');
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+      const [analysisStyle, setAnalysisStyle] = useState('warm and supportive');
+      const [sentiment, setSentiment] = useState<SentimentAnalysisResult | null>(null);
+      const [isSentimentLoading, setIsSentimentLoading] = useState(false);
     const [showExportMenu, setShowExportMenu] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const exportMenuRef = useRef<HTMLDivElement>(null);
@@ -71,27 +74,32 @@ export default function Home() {
       };
     }, [showExportMenu]);
 
-  const createNewConversation = () => {
-    const newConv: Conversation = {
-      id: Date.now().toString(),
-      title: 'New Conversation',
-      messages: [
-        {
-          id: Date.now().toString(),
-          role: 'assistant',
-          content: "What's on your mind?",
-          timestamp: Date.now(),
-        }
-      ],
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+    const createNewConversation = () => {
+      const newConv: Conversation = {
+        id: Date.now().toString(),
+        title: 'New Conversation',
+        messages: [
+          {
+            id: Date.now().toString(),
+            role: 'assistant',
+            content: "What's on your mind?",
+            timestamp: Date.now(),
+          }
+        ],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      setCurrentConversation(newConv);
+      setSentiment(null);
     };
-    setCurrentConversation(newConv);
-  };
 
-  const selectConversation = (conv: Conversation) => {
-    setCurrentConversation(conv);
-  };
+    const selectConversation = (conv: Conversation) => {
+      setCurrentConversation(conv);
+      setSentiment(null);
+      if (conv.messages.length > 1) {
+        analyzeSentiment(conv.messages);
+      }
+    };
 
   const deleteConv = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -121,14 +129,38 @@ export default function Home() {
     setSystemPrompt(DEFAULT_SYSTEM_PROMPT);
   };
 
-  const updateTheme = (updates: Partial<ThemeSettings>) => {
-    if (!theme) return;
-    const newTheme = { ...theme, ...updates };
-    setTheme(newTheme);
-    saveTheme(newTheme);
-  };
+    const updateTheme = (updates: Partial<ThemeSettings>) => {
+      if (!theme) return;
+      const newTheme = { ...theme, ...updates };
+      setTheme(newTheme);
+      saveTheme(newTheme);
+    };
 
-  const handleDone = async () => {
+    const analyzeSentiment = async (messages: Message[]) => {
+      if (messages.length === 0) return;
+
+      setIsSentimentLoading(true);
+      try {
+        const response = await fetch('/api/analyze-sentiment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: messages.map(m => ({ role: m.role, content: m.content })),
+          }),
+        });
+
+        if (response.ok) {
+          const result: SentimentAnalysisResult = await response.json();
+          setSentiment(result);
+        }
+      } catch (error) {
+        console.error('Error analyzing sentiment:', error);
+      } finally {
+        setIsSentimentLoading(false);
+      }
+    };
+
+    const handleDone = async () => {
     if (!currentConversation || currentConversation.messages.length === 0) {
       alert('No conversation to analyze');
       return;
@@ -298,20 +330,23 @@ export default function Home() {
         updatedAt: Date.now(),
       };
 
-      saveConversation(finalConv);
-      setCurrentConversation(finalConv);
+        saveConversation(finalConv);
+        setCurrentConversation(finalConv);
 
-      // Update conversations list
-      const allConvs = getConversations();
-      setConversations(allConvs);
+        // Update conversations list
+        const allConvs = getConversations();
+        setConversations(allConvs);
 
-    } catch (error) {
-      console.error('Error sending message:', error);
-      alert('Failed to send message. Make sure your OPENAI_API_KEY is set in .env.local');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+        // Analyze sentiment after message exchange
+        analyzeSentiment(finalConv.messages);
+
+      } catch (error) {
+        console.error('Error sending message:', error);
+        alert('Failed to send message. Make sure your OPENAI_API_KEY is set in .env.local');
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
     const handleKeyPress = (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -531,10 +566,15 @@ export default function Home() {
             </div>
           ) : (
             <>
-              {/* Export Button Header */}
-              {currentConversation && currentConversation.messages.length > 0 && (
-                <div className="flex justify-end p-4 pb-0">
-                  <div className="relative" ref={exportMenuRef}>
+                            {/* Sentiment Indicator and Export Button Header */}
+                            {currentConversation && currentConversation.messages.length > 0 && (
+                              <div className="flex justify-between items-center p-4 pb-0">
+                                <SentimentIndicator
+                                  sentiment={sentiment}
+                                  isLoading={isSentimentLoading}
+                                  glassClass={glassClass}
+                                />
+                                <div className="relative" ref={exportMenuRef}>
                     <button
                       onClick={() => setShowExportMenu(!showExportMenu)}
                       className={`flex items-center gap-2 px-4 py-2 ${glassClass} rounded-lg hover:bg-white/30 transition text-gray-900`}

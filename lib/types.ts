@@ -30,3 +30,11 @@ export interface EndOfConversationScreen {
   emotionalTone: string;
   suggestedNextStep?: string;
 }
+
+export type SentimentType = 'positive' | 'negative' | 'neutral' | 'mixed';
+
+export interface SentimentAnalysisResult {
+  sentiment: SentimentType;
+  confidence: number;
+  summary: string;
+}
