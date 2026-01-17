@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Message, Conversation, EndOfConversationScreen as EndScreenData } from '@/lib/types';
+import { Message, Conversation, EndOfConversationScreen as EndScreenData, LLMModel, LLM_MODELS } from '@/lib/types';
 import {
   getConversations,
   saveConversation,
@@ -12,7 +12,10 @@ import {
   getSystemPrompt,
   saveSystemPrompt,
   resetSystemPrompt,
-  DEFAULT_SYSTEM_PROMPT
+  DEFAULT_SYSTEM_PROMPT,
+  getSelectedModel,
+  saveSelectedModel,
+  DEFAULT_MODEL
 } from '@/lib/storage';
 import { getTheme, saveTheme, ThemeSettings, BackgroundType, ColorPalette, GLASS_STYLES } from '@/lib/theme';
 import { exportConversation, ExportFormat } from '@/lib/export';
@@ -33,8 +36,11 @@ export default function Home() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [analysisStyle, setAnalysisStyle] = useState('warm and supportive');
     const [showExportMenu, setShowExportMenu] = useState(false);
+    const [selectedModel, setSelectedModel] = useState<LLMModel>(DEFAULT_MODEL);
+    const [showModelMenu, setShowModelMenu] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const exportMenuRef = useRef<HTMLDivElement>(null);
+    const modelMenuRef = useRef<HTMLDivElement>(null);
 
   // Load data from localStorage on mount
   useEffect(() => {
@@ -42,6 +48,7 @@ export default function Home() {
     setConversations(savedConversations);
     setSystemPrompt(getSystemPrompt());
     setTheme(getTheme());
+    setSelectedModel(getSelectedModel());
 
     // If there are conversations, load the most recent one
     if (savedConversations.length > 0) {
@@ -70,6 +77,29 @@ export default function Home() {
         document.removeEventListener('mousedown', handleClickOutside);
       };
     }, [showExportMenu]);
+
+    // Close model menu when clicking outside
+    useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (modelMenuRef.current && !modelMenuRef.current.contains(event.target as Node)) {
+          setShowModelMenu(false);
+        }
+      };
+
+      if (showModelMenu) {
+        document.addEventListener('mousedown', handleClickOutside);
+      }
+
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }, [showModelMenu]);
+
+    const handleModelSelect = (model: LLMModel) => {
+      setSelectedModel(model);
+      saveSelectedModel(model);
+      setShowModelMenu(false);
+    };
 
   const createNewConversation = () => {
     const newConv: Conversation = {
@@ -637,6 +667,38 @@ export default function Home() {
               {/* Input */}
               <div className={`border-t border-white/20 p-6 ${glassClass}`}>
                 <div className="max-w-3xl mx-auto space-y-3">
+                  {/* Model Selector */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-700">Model:</span>
+                    <div className="relative" ref={modelMenuRef}>
+                      <button
+                        onClick={() => setShowModelMenu(!showModelMenu)}
+                        className={`flex items-center gap-2 px-3 py-1.5 ${glassClass} rounded-lg hover:bg-white/30 transition text-gray-900 text-sm font-medium`}
+                      >
+                        <span>{selectedModel}</span>
+                        <svg className={`w-4 h-4 transition-transform ${showModelMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      {showModelMenu && (
+                        <div className={`absolute left-0 mt-1 w-40 ${glassClass} rounded-lg shadow-lg border border-white/30 overflow-hidden z-10`}>
+                          {LLM_MODELS.map((model) => (
+                            <button
+                              key={model}
+                              onClick={() => handleModelSelect(model)}
+                              className={`w-full px-4 py-2 text-left text-sm transition text-gray-900 ${
+                                selectedModel === model
+                                  ? 'bg-white/40 font-semibold'
+                                  : 'hover:bg-white/30'
+                              }`}
+                            >
+                              {model}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                   <div className="flex gap-4">
                     <textarea
                       value={input}

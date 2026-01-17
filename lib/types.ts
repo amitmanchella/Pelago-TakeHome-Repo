@@ -30,3 +30,7 @@ export interface EndOfConversationScreen {
   emotionalTone: string;
   suggestedNextStep?: string;
 }
+
+export type LLMModel = 'GPT 5.2' | 'Claude Sonnet';
+
+export const LLM_MODELS: LLMModel[] = ['GPT 5.2', 'Claude Sonnet'];
