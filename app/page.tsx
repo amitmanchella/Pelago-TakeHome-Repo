@@ -563,6 +563,12 @@ export default function Home() {
                         >
                           Export as PDF
                         </button>
+                        <button
+                          onClick={() => handleExport('html')}
+                          className="w-full px-4 py-3 text-left hover:bg-white/30 transition text-gray-900 border-t border-white/20"
+                        >
+                          Export as HTML
+                        </button>
                       </div>
                     )}
                   </div>
