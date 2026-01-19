@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Message, Conversation, EndOfConversationScreen as EndScreenData } from '@/lib/types';
+import { Message, Conversation, EndOfConversationScreen as EndScreenData, SentimentType } from '@/lib/types';
 import {
   getConversations,
   saveConversation,
@@ -18,6 +18,7 @@ import { getTheme, saveTheme, ThemeSettings, BackgroundType, ColorPalette, GLASS
 import { exportConversation, ExportFormat } from '@/lib/export';
 import BackgroundWrapper from '@/components/backgrounds/BackgroundWrapper';
 import EndOfConversationScreen from '@/components/EndOfConversationScreen';
+import SentimentIndicator from '@/components/SentimentIndicator';
 import { Download } from 'lucide-react';
 
 export default function Home() {
@@ -30,8 +31,10 @@ export default function Home() {
   const [theme, setTheme] = useState<ThemeSettings | null>(null);
   const [showEndScreen, setShowEndScreen] = useState(false);
   const [endScreenData, setEndScreenData] = useState<EndScreenData | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [analysisStyle, setAnalysisStyle] = useState('warm and supportive');
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [currentSentiment, setCurrentSentiment] = useState<SentimentType | null>(null);
+    const [isAnalyzingSentiment, setIsAnalyzingSentiment] = useState(false);
+      const [analysisStyle, setAnalysisStyle] = useState('warm and supportive');
     const [showExportMenu, setShowExportMenu] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const exportMenuRef = useRef<HTMLDivElement>(null);
@@ -305,6 +308,29 @@ export default function Home() {
       const allConvs = getConversations();
       setConversations(allConvs);
 
+      // Analyze sentiment after message exchange completes
+      setIsAnalyzingSentiment(true);
+      try {
+        const sentimentResponse = await fetch('/api/analyze-sentiment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: finalConv.messages.map(m => ({ role: m.role, content: m.content })),
+          }),
+        });
+
+        if (sentimentResponse.ok) {
+          const { sentiment } = await sentimentResponse.json();
+          if (sentiment) {
+            setCurrentSentiment(sentiment);
+          }
+        }
+      } catch (sentimentError) {
+        console.error('Error analyzing sentiment:', sentimentError);
+      } finally {
+        setIsAnalyzingSentiment(false);
+      }
+
     } catch (error) {
       console.error('Error sending message:', error);
       alert('Failed to send message. Make sure your OPENAI_API_KEY is set in .env.local');
@@ -531,9 +557,14 @@ export default function Home() {
             </div>
           ) : (
             <>
-              {/* Export Button Header */}
+              {/* Header with Sentiment Indicator and Export Button */}
               {currentConversation && currentConversation.messages.length > 0 && (
-                <div className="flex justify-end p-4 pb-0">
+                <div className="flex justify-between items-center p-4 pb-0">
+                  <SentimentIndicator
+                    sentiment={currentSentiment}
+                    isAnalyzing={isAnalyzingSentiment}
+                    glassClass={glassClass}
+                  />
                   <div className="relative" ref={exportMenuRef}>
                     <button
                       onClick={() => setShowExportMenu(!showExportMenu)}
