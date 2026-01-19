@@ -30,3 +30,5 @@ export interface EndOfConversationScreen {
   emotionalTone: string;
   suggestedNextStep?: string;
 }
+
+export type SentimentType = 'happy' | 'sad' | 'angry';

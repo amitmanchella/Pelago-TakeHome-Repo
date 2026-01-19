@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Message, Conversation, EndOfConversationScreen as EndScreenData } from '@/lib/types';
+import { Message, Conversation, EndOfConversationScreen as EndScreenData, SentimentType } from '@/lib/types';
 import {
   getConversations,
   saveConversation,
@@ -18,6 +18,7 @@ import { getTheme, saveTheme, ThemeSettings, BackgroundType, ColorPalette, GLASS
 import { exportConversation, ExportFormat } from '@/lib/export';
 import BackgroundWrapper from '@/components/backgrounds/BackgroundWrapper';
 import EndOfConversationScreen from '@/components/EndOfConversationScreen';
+import SentimentIndicator from '@/components/SentimentIndicator';
 import { Download } from 'lucide-react';
 
 export default function Home() {
@@ -30,8 +31,10 @@ export default function Home() {
   const [theme, setTheme] = useState<ThemeSettings | null>(null);
   const [showEndScreen, setShowEndScreen] = useState(false);
   const [endScreenData, setEndScreenData] = useState<EndScreenData | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [analysisStyle, setAnalysisStyle] = useState('warm and supportive');
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [sentiment, setSentiment] = useState<SentimentType | null>(null);
+    const [isSentimentLoading, setIsSentimentLoading] = useState(false);
+      const [analysisStyle, setAnalysisStyle] = useState('warm and supportive');
     const [showExportMenu, setShowExportMenu] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const exportMenuRef = useRef<HTMLDivElement>(null);
@@ -72,26 +75,31 @@ export default function Home() {
     }, [showExportMenu]);
 
   const createNewConversation = () => {
-    const newConv: Conversation = {
-      id: Date.now().toString(),
-      title: 'New Conversation',
-      messages: [
-        {
-          id: Date.now().toString(),
-          role: 'assistant',
-          content: "What's on your mind?",
-          timestamp: Date.now(),
-        }
-      ],
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      const newConv: Conversation = {
+        id: Date.now().toString(),
+        title: 'New Conversation',
+        messages: [
+          {
+            id: Date.now().toString(),
+            role: 'assistant',
+            content: "What's on your mind?",
+            timestamp: Date.now(),
+          }
+        ],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      setCurrentConversation(newConv);
+      setSentiment(null);
     };
-    setCurrentConversation(newConv);
-  };
 
-  const selectConversation = (conv: Conversation) => {
-    setCurrentConversation(conv);
-  };
+    const selectConversation = (conv: Conversation) => {
+      setCurrentConversation(conv);
+      setSentiment(null);
+      if (conv.messages.length > 1) {
+        analyzeSentiment(conv.messages);
+      }
+    };
 
   const deleteConv = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -103,13 +111,14 @@ export default function Home() {
     }
   };
 
-  const clearAll = () => {
-    if (confirm('Are you sure you want to delete all conversations and memory?')) {
-      clearAllConversations();
-      setConversations([]);
-      setCurrentConversation(null);
-    }
-  };
+    const clearAll = () => {
+      if (confirm('Are you sure you want to delete all conversations and memory?')) {
+        clearAllConversations();
+        setConversations([]);
+        setCurrentConversation(null);
+        setSentiment(null);
+      }
+    };
 
   const savePrompt = () => {
     saveSystemPrompt(systemPrompt);
@@ -195,12 +204,42 @@ export default function Home() {
     setShowEndScreen(false);
   };
 
-  const handleStartNewFromEndScreen = () => {
-    setShowEndScreen(false);
-    createNewConversation();
-  };
+    const handleStartNewFromEndScreen = () => {
+      setShowEndScreen(false);
+      createNewConversation();
+      setSentiment(null);
+    };
 
-  const sendMessage = async () => {
+    const analyzeSentiment = async (messages: Message[]) => {
+      if (messages.length < 2) {
+        setSentiment(null);
+        return;
+      }
+
+      setIsSentimentLoading(true);
+      try {
+        const response = await fetch('/api/analyze-sentiment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: messages.map(m => ({ role: m.role, content: m.content })),
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.sentiment) {
+            setSentiment(data.sentiment);
+          }
+        }
+      } catch (error) {
+        console.error('Error analyzing sentiment:', error);
+      } finally {
+        setIsSentimentLoading(false);
+      }
+    };
+
+    const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
 
     // Create conversation if it doesn't exist
@@ -298,14 +337,17 @@ export default function Home() {
         updatedAt: Date.now(),
       };
 
-      saveConversation(finalConv);
-      setCurrentConversation(finalConv);
+          saveConversation(finalConv);
+          setCurrentConversation(finalConv);
 
-      // Update conversations list
-      const allConvs = getConversations();
-      setConversations(allConvs);
+          // Update conversations list
+          const allConvs = getConversations();
+          setConversations(allConvs);
 
-    } catch (error) {
+          // Analyze sentiment after assistant response completes
+          analyzeSentiment(finalConv.messages);
+
+        } catch (error) {
       console.error('Error sending message:', error);
       alert('Failed to send message. Make sure your OPENAI_API_KEY is set in .env.local');
     } finally {
@@ -573,12 +615,21 @@ export default function Home() {
                     )}
                   </div>
                 </div>
-              )}
+                            )}
 
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                <div className="max-w-3xl mx-auto space-y-4">
-                  {/* Conversation Starters - Show when only initial greeting */}
+                            {/* Sentiment Indicator */}
+                            {currentConversation && currentConversation.messages.length > 1 && (
+                              <div className="pt-4 px-6">
+                                <div className="max-w-3xl mx-auto">
+                                  <SentimentIndicator sentiment={sentiment} isLoading={isSentimentLoading} />
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Messages */}
+                            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                              <div className="max-w-3xl mx-auto space-y-4">
+                                {/* Conversation Starters - Show when only initial greeting */}
                   {currentConversation && currentConversation.messages.length === 1 && !isLoading && (
                     <div className="flex flex-col items-center justify-center min-h-[400px] space-y-6">
                       <div className="text-center space-y-2">
