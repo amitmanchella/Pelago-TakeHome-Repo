@@ -28,6 +28,9 @@ export default function Home() {
   const [showSettings, setShowSettings] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
   const [theme, setTheme] = useState<ThemeSettings | null>(null);
+  const [selectedModel, setSelectedModel] = useState('GPT 5.2');
+
+  const modelOptions = ['GPT 5.2', 'Claude Sonnet'];
   const [showEndScreen, setShowEndScreen] = useState(false);
   const [endScreenData, setEndScreenData] = useState<EndScreenData | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -643,6 +646,21 @@ export default function Home() {
               {/* Input */}
               <div className={`border-t border-white/20 p-6 ${glassClass}`}>
                 <div className="max-w-3xl mx-auto space-y-3">
+                  {/* Model Selector */}
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-900">Model:</label>
+                    <select
+                      value={selectedModel}
+                      onChange={(e) => setSelectedModel(e.target.value)}
+                      className={`px-3 py-1.5 ${glassClass} rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-white/50 cursor-pointer`}
+                    >
+                      {modelOptions.map((model) => (
+                        <option key={model} value={model} className="bg-white text-gray-900">
+                          {model}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <div className="flex gap-4">
                     <textarea
                       value={input}
